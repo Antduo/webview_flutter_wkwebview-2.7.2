@@ -25,6 +25,45 @@
 - (void)webView:(WKWebView *)webView
     decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
                     decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
+
+   NSURL *url = navigationAction.request.URL;
+   NSString *reqUrl = url.absoluteString;
+   NSLog(@"-url---- %@",reqUrl);
+   NSString *scheme = [url scheme];
+
+   static NSString *endPayRedirectURL = nil;
+   // H5微信支付完,跳回到APP
+   if ([reqUrl containsString:@"nidianme.com"]) {
+       self.url = @"www.nidianme.com";
+   }
+
+   if ([reqUrl containsString:@"haodf.com"]) {
+       self.url = @"www.haodf.com";
+   }
+
+   if ([reqUrl containsString:@"orange1.com.cn"]) {
+       self.url = @"www.orange1.com.cn";
+   }
+
+
+   if ([reqUrl hasPrefix:@"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb"] && ![reqUrl hasSuffix:[NSString stringWithFormat:@"redirect_url=%@://",self.url]]) {
+       decisionHandler(WKNavigationActionPolicyCancel);
+
+       NSString *redirectUrl = nil;
+       if ([reqUrl containsString:@"redirect_url="]) {
+            NSRange redirectRange = [reqUrl rangeOfString:@"redirect_url"];
+            endPayRedirectURL =  [reqUrl substringFromIndex:redirectRange.location+redirectRange.length+1];
+            redirectUrl = [[reqUrl substringToIndex:redirectRange.location] stringByAppendingString:[NSString stringWithFormat:@"redirect_url=%@://",self.url]];
+       }else {
+            redirectUrl = [reqUrl stringByAppendingString:[NSString stringWithFormat:@"&redirect_url=%@://",self.url]];
+       }
+       NSMutableURLRequest *newRequest = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:redirectUrl] cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:10];
+       newRequest.allHTTPHeaderFields = navigationAction.request.allHTTPHeaderFields;
+       newRequest.URL = [NSURL URLWithString:redirectUrl];
+       [webView loadRequest:newRequest];
+       return;
+   }
+
   if (!self.hasDartNavigationDelegate) {
     decisionHandler(WKNavigationActionPolicyAllow);
     return;
@@ -61,6 +100,7 @@
                                                                   : WKNavigationActionPolicyCancel);
                         }];
 }
+
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
   if (!self.shouldEnableZoom) {
